@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -108,6 +109,63 @@ namespace Voltide.UI
                 DestroyIcon(handle);
                 return icon;
             }
+        }
+
+        /// <summary>
+        /// Tray icon with the device's percentage drawn over the logo. A null
+        /// percentage (asleep / unknown) keeps the plain logo.
+        /// </summary>
+        public static Icon ToIcon(int size, int? percent)
+        {
+            using (Bitmap bmp = RenderWithPercent(size, percent))
+            {
+                IntPtr handle = bmp.GetHicon();
+                Icon icon = (Icon)Icon.FromHandle(handle).Clone();
+                DestroyIcon(handle);
+                return icon;
+            }
+        }
+
+        /// <summary>Base logo with the percent number centred on top.</summary>
+        public static Bitmap RenderWithPercent(int size, int? percent)
+        {
+            Bitmap bmp = Render(size);
+            if (!percent.HasValue) return bmp;
+
+            string text = percent.Value.ToString();
+            float px = size * 0.46f;
+            Font font = FontManager.Get(FontKind.MontserratSemiBold, px);
+
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+
+                SizeF sz = g.MeasureString(text, font);
+                float x = (size - sz.Width) / 2f;
+                float y = (size - sz.Height) / 2f;
+
+                Color fill = CardRenderer.PrimaryFor(percent.Value);
+                Color outline = Color.FromArgb(17, 15, 36);
+
+                // Dark outline offsets the digits from the green plate; the tier
+                // colour fills the middle, same rule as the card percentage.
+                using (SolidBrush outlineBrush = new SolidBrush(outline))
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                        for (int dy = -1; dy <= 1; dy++)
+                            if (dx != 0 || dy != 0)
+                                g.DrawString(text, font, outlineBrush, x + dx, y + dy);
+                }
+
+                using (SolidBrush fillBrush = new SolidBrush(fill))
+                {
+                    g.DrawString(text, font, fillBrush, x, y);
+                }
+            }
+
+            return bmp;
         }
 
         /// <summary>

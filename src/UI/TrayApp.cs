@@ -19,6 +19,11 @@ namespace Voltide.UI
         private readonly MainForm _form;
         private readonly System.Windows.Forms.Timer _timer;
 
+        // One notification-area icon per visible device, keyed by device Id. The
+        // master _tray above is kept only as a fallback when no device is present.
+        private readonly Dictionary<string, NotifyIcon> _icons =
+            new Dictionary<string, NotifyIcon>(StringComparer.OrdinalIgnoreCase);
+
         private bool _refreshing;
         private bool _refreshQueued;
 
@@ -50,12 +55,7 @@ namespace Voltide.UI
             _tray.Icon = IconFactory.ToIcon(32);
             _tray.Text = "Voltide";   // Windows tooltip on hover
             _tray.Visible = true;
-
-            _tray.MouseUp += delegate(object s, MouseEventArgs e)
-            {
-                if (e.Button == MouseButtons.Left) { _form.ShowPanel(); return; }
-                ShowMenuAboveRight();
-            };
+            Wire(_tray);
 
             _form.RefreshSeconds = LoadRefreshSeconds();
             _form.RefreshRateChanged += delegate
@@ -78,6 +78,95 @@ namespace Voltide.UI
             _timer.Start();
 
             RefreshNow();
+        }
+
+        // ----------------------------------------------------- tray icons
+
+        private void Wire(NotifyIcon icon)
+        {
+            icon.MouseUp += delegate(object s, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left) { _form.ShowPanel(); return; }
+                ShowMenuAboveRight();
+            };
+        }
+
+        /// <summary>
+        /// Keeps one notification-area icon per visible device in step with the
+        /// snapshot. Online devices carry their percentage on the icon; asleep or
+        /// unknown devices keep the plain logo. The master app icon shows only when
+        /// no per-device icon exists, so the app is still reachable with no device.
+        /// </summary>
+        private void UpdateTrayIcons(List<DeviceSnapshot> snaps)
+        {
+            HashSet<string> live = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (snaps != null)
+            {
+                foreach (DeviceSnapshot s in snaps)
+                {
+                    if (s == null || s.Info == null || s.Reading == null) continue;
+                    // Same visibility rule as the cards: online or still paired but idle.
+                    if (!s.Reading.Online && !s.Reading.Sleeping) continue;
+
+                    string id = s.Info.Id;
+                    live.Add(id);
+
+                    NotifyIcon icon;
+                    if (!_icons.TryGetValue(id, out icon))
+                    {
+                        icon = new NotifyIcon();
+                        Wire(icon);
+                        _icons[id] = icon;
+                    }
+
+                    int? percent = HasLevel(s) ? s.Reading.Percent : (int?)null;
+
+                    Icon old = icon.Icon;
+                    icon.Icon = IconFactory.ToIcon(32, percent);
+                    if (old != null) old.Dispose();
+
+                    icon.Text = BuildTooltip(s);
+                    icon.Visible = true;
+                }
+            }
+
+            // Devices that vanished: drop their icon instead of leaving a stale one.
+            List<string> gone = new List<string>();
+            foreach (KeyValuePair<string, NotifyIcon> kv in _icons)
+            {
+                if (!live.Contains(kv.Key)) gone.Add(kv.Key);
+            }
+            foreach (string id in gone)
+            {
+                NotifyIcon icon = _icons[id];
+                _icons.Remove(id);
+                icon.Visible = false;
+                icon.Dispose();
+            }
+
+            _tray.Visible = _icons.Count == 0;
+        }
+
+        private string BuildTooltip(DeviceSnapshot s)
+        {
+            string name = !string.IsNullOrEmpty(s.Info.ShortModel) ? s.Info.ShortModel
+                        : !string.IsNullOrEmpty(s.Info.Model) ? s.Info.Model
+                        : s.Info.Brand;
+
+            string state;
+            if (HasLevel(s))
+            {
+                state = s.Reading.Percent.Value + "%";
+                if (s.Reading.Charging) state += " 充电中";
+            }
+            else
+            {
+                state = "休眠中";
+            }
+
+            string tip = name + " " + state;
+            return tip.Length > 127 ? tip.Substring(0, 127) : tip;
         }
 
         /// <summary>
@@ -291,11 +380,13 @@ namespace Voltide.UI
                     _refreshing = false;
                 }
 
+                List<DeviceSnapshot> snaps = _manager.Snapshot();
                 try
                 {
                     _form.BeginInvoke(new MethodInvoker(delegate
                     {
-                        _form.UpdateSnapshot(_manager.Snapshot());
+                        _form.UpdateSnapshot(snaps);
+                        UpdateTrayIcons(snaps);
                     }));
                 }
                 catch
@@ -330,6 +421,13 @@ namespace Voltide.UI
                 _timer.Stop();
                 _timer.Dispose();
             }
+
+            foreach (KeyValuePair<string, NotifyIcon> kv in _icons)
+            {
+                kv.Value.Visible = false;
+                kv.Value.Dispose();
+            }
+            _icons.Clear();
 
             if (_tray != null)
             {
