@@ -123,7 +123,7 @@ namespace Voltide.UI
                     int? percent = HasLevel(s) ? s.Reading.Percent : (int?)null;
 
                     Icon old = icon.Icon;
-                    icon.Icon = IconFactory.ToIcon(32, percent);
+                    icon.Icon = IconFactory.ToIcon(32, s.Info.Kind, percent);
                     if (old != null) old.Dispose();
 
                     icon.Text = BuildTooltip(s);

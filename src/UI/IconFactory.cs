@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.IO;
 using System.Runtime.InteropServices;
+using Voltide.Core;
 
 namespace Voltide.UI
 {
@@ -112,14 +113,13 @@ namespace Voltide.UI
         }
 
         /// <summary>
-        /// Tray icon styled like the system battery: a battery outline with an
-        /// electrode nub, an inner fill bar scaled to the level, and the percentage
-        /// centred on top. A null percentage (asleep / unknown) draws an empty,
-        /// grey battery.
+        /// Tray icon for one device: the top half draws the device shape (mouse,
+        /// keyboard, headset, or a battery fallback), the percentage sits below it.
+        /// A null percentage (asleep / unknown) draws a grey shape with no number.
         /// </summary>
-        public static Icon ToIcon(int size, int? percent)
+        public static Icon ToIcon(int size, DeviceKind kind, int? percent)
         {
-            using (Bitmap bmp = RenderBattery(size, percent))
+            using (Bitmap bmp = RenderDevice(size, kind, percent))
             {
                 IntPtr handle = bmp.GetHicon();
                 Icon icon = (Icon)Icon.FromHandle(handle).Clone();
@@ -128,27 +128,17 @@ namespace Voltide.UI
             }
         }
 
-        /// <summary>System-style battery glyph at the requested pixel size.</summary>
-        public static Bitmap RenderBattery(int size, int? percent)
+        /// <summary>Device-shape glyph at the requested pixel size.</summary>
+        public static Bitmap RenderDevice(int size, DeviceKind kind, int? percent)
         {
             Bitmap bmp = new Bitmap(size, size, PixelFormat.Format32bppPArgb);
-
             float k = size / 32f;
 
-            // Battery body and the electrode nub on the right, laid out on a 32px grid.
-            float bodyX = 3f * k;
-            float bodyY = 10f * k;
-            float bodyW = 21f * k;
-            float bodyH = 13f * k;
-            float nubW = 3f * k;
-            float nubH = 5f * k;
-            float nubX = bodyX + bodyW;
-            float nubY = bodyY + (bodyH - nubH) / 2f;
-            float inset = 2f * k;
-
-            Color outline = percent.HasValue
-                ? Color.FromArgb(225, 225, 225)
-                : Color.FromArgb(120, 120, 120);
+            bool active = percent.HasValue;
+            Color fill = active ? CardRenderer.PrimaryFor(percent.Value)
+                                : Color.FromArgb(120, 120, 120);
+            Color outline = active ? Color.FromArgb(225, 225, 225)
+                                   : Color.FromArgb(120, 120, 120);
 
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -157,54 +147,139 @@ namespace Voltide.UI
                 g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
                 g.Clear(Color.Transparent);
 
-                // Fill bar first, so the outline stroke stays on top.
-                if (percent.HasValue)
+                switch (kind)
                 {
-                    int p = Math.Max(0, Math.Min(100, percent.Value));
-                    float fillW = (bodyW - inset * 2f) * p / 100f;
-                    using (SolidBrush fill = new SolidBrush(CardRenderer.PrimaryFor(p)))
-                    {
-                        g.FillRectangle(fill, bodyX + inset, bodyY + inset, fillW, bodyH - inset * 2f);
-                    }
+                    case DeviceKind.Mouse: DrawMouse(g, k, fill, outline); break;
+                    case DeviceKind.Keyboard: DrawKeyboard(g, k, fill, outline); break;
+                    case DeviceKind.Headset: DrawHeadset(g, k, fill, outline); break;
+                    default: RenderBatteryInto(g, k, percent, fill, outline); break;
                 }
 
-                using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
-                {
-                    g.DrawRectangle(pen, bodyX, bodyY, bodyW, bodyH);
-                }
-                using (SolidBrush nub = new SolidBrush(outline))
-                {
-                    g.FillRectangle(nub, nubX, nubY, nubW, nubH);
-                }
-
-                if (percent.HasValue)
-                {
-                    string text = percent.Value.ToString();
-                    float px = bodyH * 0.72f;
-                    Font font = FontManager.Get(FontKind.MontserratSemiBold, px);
-
-                    SizeF sz = g.MeasureString(text, font);
-                    float x = bodyX + (bodyW - sz.Width) / 2f;
-                    float y = bodyY + (bodyH - sz.Height) / 2f;
-
-                    Color textColor = Color.White;
-                    Color halo = Color.FromArgb(17, 15, 36);
-
-                    using (SolidBrush haloBrush = new SolidBrush(halo))
-                    {
-                        for (int dx = -1; dx <= 1; dx++)
-                            for (int dy = -1; dy <= 1; dy++)
-                                if (dx != 0 || dy != 0)
-                                    g.DrawString(text, font, haloBrush, x + dx * k, y + dy * k);
-                    }
-                    using (SolidBrush textBrush = new SolidBrush(textColor))
-                    {
-                        g.DrawString(text, font, textBrush, x, y);
-                    }
-                }
+                if (active) DrawPercent(g, k, percent.Value);
             }
 
             return bmp;
+        }
+
+        // -------------------------------------------------------- shapes
+
+        private static void DrawMouse(Graphics g, float k, Color fill, Color outline)
+        {
+            // Vertical rounded body, a centre split from the top, and a small wheel.
+            RectangleF body = new RectangleF(11f * k, 3f * k, 10f * k, 16f * k);
+            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 5f * k))
+            using (SolidBrush brush = new SolidBrush(fill))
+            using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(pen, path);
+            }
+
+            float midX = body.X + body.Width / 2f;
+            using (Pen pen = new Pen(outline, Math.Max(1f, k)))
+            {
+                g.DrawLine(pen, midX, body.Y + 1f * k, midX, body.Y + 8f * k);
+            }
+
+            using (SolidBrush wheel = new SolidBrush(outline))
+            {
+                g.FillRectangle(wheel, midX - 0.9f * k, body.Y + 4f * k, 1.8f * k, 3.5f * k);
+            }
+        }
+
+        private static void DrawKeyboard(Graphics g, float k, Color fill, Color outline)
+        {
+            RectangleF body = new RectangleF(5f * k, 7f * k, 22f * k, 11f * k);
+            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 2.5f * k))
+            using (SolidBrush brush = new SolidBrush(fill))
+            using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(pen, path);
+            }
+
+            // Two rows of key caps.
+            using (SolidBrush key = new SolidBrush(outline))
+            {
+                for (int row = 0; row < 2; row++)
+                {
+                    float ky = body.Y + 2.5f * k + row * 4.5f * k;
+                    for (int col = 0; col < 5; col++)
+                    {
+                        float kx = body.X + 2.5f * k + col * 4f * k;
+                        g.FillRectangle(key, kx, ky, 2.4f * k, 2.2f * k);
+                    }
+                }
+            }
+        }
+
+        private static void DrawHeadset(Graphics g, float k, Color fill, Color outline)
+        {
+            // Headband arc across the top, two ear cups hanging at the sides.
+            RectangleF band = new RectangleF(9f * k, 3f * k, 14f * k, 12f * k);
+            using (Pen pen = new Pen(fill, Math.Max(1.5f, 2.2f * k)))
+            {
+                g.DrawArc(pen, band, 180f, 180f);
+            }
+
+            using (SolidBrush cup = new SolidBrush(fill))
+            {
+                g.FillRectangle(cup, 6.5f * k, 8f * k, 4f * k, 8f * k);
+                g.FillRectangle(cup, 21.5f * k, 8f * k, 4f * k, 8f * k);
+            }
+            using (Pen pen = new Pen(outline, Math.Max(1f, 1f * k)))
+            {
+                g.DrawRectangle(pen, 6.5f * k, 8f * k, 4f * k, 8f * k);
+                g.DrawRectangle(pen, 21.5f * k, 8f * k, 4f * k, 8f * k);
+            }
+        }
+
+        private static void RenderBatteryInto(Graphics g, float k, int? percent, Color fill, Color outline)
+        {
+            float bodyX = 4f * k, bodyY = 4f * k, bodyW = 20f * k, bodyH = 13f * k;
+            float nubW = 3f * k, nubH = 5f * k;
+            float inset = 2f * k;
+
+            if (percent.HasValue)
+            {
+                int p = Math.Max(0, Math.Min(100, percent.Value));
+                float fillW = (bodyW - inset * 2f) * p / 100f;
+                using (SolidBrush bar = new SolidBrush(fill))
+                {
+                    g.FillRectangle(bar, bodyX + inset, bodyY + inset, fillW, bodyH - inset * 2f);
+                }
+            }
+
+            using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
+            {
+                g.DrawRectangle(pen, bodyX, bodyY, bodyW, bodyH);
+            }
+            using (SolidBrush nub = new SolidBrush(outline))
+            {
+                g.FillRectangle(nub, bodyX + bodyW, bodyY + (bodyH - nubH) / 2f, nubW, nubH);
+            }
+        }
+
+        private static void DrawPercent(Graphics g, float k, int percent)
+        {
+            string text = percent.ToString();
+            Font font = FontManager.Get(FontKind.MontserratSemiBold, 9.5f * k);
+            SizeF sz = g.MeasureString(text, font);
+            float x = (32f * k - sz.Width) / 2f;
+            float y = 21f * k;
+
+            Color halo = Color.FromArgb(17, 15, 36);
+            using (SolidBrush haloBrush = new SolidBrush(halo))
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                        if (dx != 0 || dy != 0)
+                            g.DrawString(text, font, haloBrush, x + dx * k, y + dy * k);
+            }
+            using (SolidBrush textBrush = new SolidBrush(Color.White))
+            {
+                g.DrawString(text, font, textBrush, x, y);
+            }
         }
 
         /// <summary>
