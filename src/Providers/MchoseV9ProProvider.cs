@@ -10,10 +10,9 @@ namespace Voltide.Providers
     /// MCHOSE (迈丛) V9 Pro 2.4G headset.
     ///
     /// Dongle: VID 0x291D, PID 0x385D, product string "MCHOSE V9 PRO",
-    /// manufacturer "C-Media Electronics Inc.". Same "M HUB" protocol as the X9
-    /// and V9 Turbo+.
+    /// manufacturer "C-Media Electronics Inc.".
     ///
-    /// Captured from the official HUB renderer bundle:
+    /// Front-end protocol from the official HUB renderer bundle:
     ///
     ///   report id 0x55; query 64 bytes: 55 65 01 00 ...
     ///   reply (input report)          : 55 65 PP SS ...
@@ -22,12 +21,17 @@ namespace Voltide.Providers
     ///                 |  +----- battery percentage
     ///                 +-------- report id / message type
     ///
-    /// On Windows the receiver exposes several vendor collections and it is not
-    /// yet confirmed which one carries report 0x55, so this provider walks every
-    /// candidate path and tries each transport the HID stack offers: interrupt
-    /// OUT (WriteFile), control output report (SET_OUTPUT_REPORT) and feature
-    /// report (SET_FEATURE / GET_FEATURE). A path that does not answer falls
-    /// through to the next; silence on every path is reported as Sleeping.
+    /// Preparsed-data map on this Windows machine (six collections, MI_00):
+    ///   FF82 : input/output report 0x41
+    ///   FF90 : input report 0x55 only, NO output report
+    ///   FF22 : feature report 0xAA
+    /// The HID surface exposes no output report carrying 0x55, so the generic
+    /// HID transports below cannot reach the firmware. The official HUB reads
+    /// battery through the vendor audio SDK osConfLib.dll (koffi + C-Media
+    /// driver PropertyControl), whose protocol lives in protected bytecode.
+    /// This provider stays as an experimental enumeration stub: it still walks
+    /// every candidate HID path (interrupt OUT, control output report, feature)
+    /// and reports Sleeping when nothing answers.
     /// </summary>
     public class MchoseV9ProProvider : IDeviceProvider
     {
