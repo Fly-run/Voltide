@@ -61,6 +61,7 @@
 | IMECOO | P1 | `3554:FB34` | 17 字节 |
 | 前行者 EWEADN | S9 Pro | `372E:103D` | 厂商自定义 |
 | 前行者 EWEADN | A5 Pro | `258A:0138` | 520 字节 Feature |
+| 前行者 EWEADN | 8K Nano | `3554:FB35` | 17 字节（Compx 方案） |
 | XIBERIA | T7（耳机） | `36F9:F008` | 64 字节 |
 | CROCIRIS | X7 | `36F9:AA20` | 厂商自定义 |
 | 雷柏 RAPOO | VT3S | `24AE:1411` | 64 字节 |
