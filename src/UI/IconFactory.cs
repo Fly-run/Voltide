@@ -263,12 +263,16 @@ namespace Voltide.UI
         private static void DrawPercent(Graphics g, float k, int percent)
         {
             string text = percent.ToString();
-            Font font = FontManager.Get(FontKind.MontserratSemiBold, 12f * k);
-            SizeF sz = g.MeasureString(text, font);
 
             // Number sits in the right-hand strip, vertically centred beside the shape.
             float areaX = 18f * k;
             float areaW = 13f * k;
+
+            // Two digits take the largest size; three digits (100 %) shrink to fit.
+            float px = text.Length >= 3 ? 10.5f * k : 14.5f * k;
+            Font font = FontManager.Get(FontKind.MontserratSemiBold, px);
+
+            SizeF sz = g.MeasureString(text, font);
             float x = areaX + (areaW - sz.Width) / 2f;
             float y = 16f * k - sz.Height / 2f;
 
