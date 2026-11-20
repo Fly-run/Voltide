@@ -50,6 +50,7 @@
 | 迈丛 MCHOSE | A5 V3 | VID `3837` | 65 字节 Feature |
 | 迈丛 MCHOSE | A7 Ultra | VID `5253` | 厂商自定义 |
 | 迈丛 MCHOSE | V9 Turbo+（耳机） | — | 厂商自定义 |
+| 迈丛 MCHOSE | V9 Pro（耳机） | `291D:385D` | 64 字节，report 0x55（实验性） |
 | ROG | AZOTH EXTREME（夜魔 Extreme） | `0B05:1ACE` | 64 字节帧；Omni 键鼠分离（实验性） |
 | ROG | Delta II、Pelta（耳机） | VID `0B05` | 64 字节，0xFF00 |
 | 雷蛇 Razer | 毒蝰、炼狱蝰蛇、巴塞利斯蛇等 24 款无线鼠标 | VID `1532` | 91 字节 Feature |
@@ -174,7 +175,7 @@ powershell -ExecutionPolicy Bypass -File pack.ps1 -Target dist
 - 同品牌但不同型号的设备会被识别为现有型号。适配层目前按厂商与接口特征匹配，尚未区分具体型号。
 - 迈丛与狼蛛共用 USB 标识（`3554:FA09`）。目前仅适配迈丛的查询协议，狼蛛键盘可能被识别为迈丛型号，读数也可能不正确。两者需要通过监听设备主动上报来区分，尚未实现。
 - XInput 手柄只能读到**四档**电量（满 100% / 中 50% / 低 20% / 空 5%），不是精确百分比。卡片详情会标注 `XInput 四档`，避免误读为实测值。
-- **MCHOSE V9 Pro（`291D:385D`）在 Windows 下暂读不到电量。** 2.4G 接收器的厂商集合对查询帧 `55 65 01` 无应答，中断 OUT 与 Feature 两种管道均试过；同一帧在 Linux 可收到 `55 65 PP 02`，Windows 端点与报文通道尚未还原，需抓官方 HUB 流量确认后再适配。
+- **MCHOSE V9 Pro（`291D:385D`）为实验性适配。** 查询帧 `55 65 01`、回复 `55 65 PP SS`（PP 百分比、SS 状态）取自官方 HUB 前端协议；Windows 下接收器的应答集合尚未最终确认，适配器会依次尝试 FF90 / FF82 中断 OUT、控制输出报告与 FF22 Feature 三种通道，暂无应答时显示休眠。待抓官方 HUB 流量核定真实端点后可收敛到单一通道。
 
 ## 许可
 
