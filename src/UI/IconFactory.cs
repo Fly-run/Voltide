@@ -165,9 +165,9 @@ namespace Voltide.UI
 
         private static void DrawMouse(Graphics g, float k, Color fill, Color outline)
         {
-            // Vertical rounded body, a centre split from the top, and a small wheel.
-            RectangleF body = new RectangleF(11f * k, 3f * k, 10f * k, 16f * k);
-            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 5f * k))
+            // Vertical rounded body on the left, a centre split from the top, a wheel.
+            RectangleF body = new RectangleF(4f * k, 7f * k, 9f * k, 18f * k);
+            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 4.5f * k))
             using (SolidBrush brush = new SolidBrush(fill))
             using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
             {
@@ -183,13 +183,13 @@ namespace Voltide.UI
 
             using (SolidBrush wheel = new SolidBrush(outline))
             {
-                g.FillRectangle(wheel, midX - 0.9f * k, body.Y + 4f * k, 1.8f * k, 3.5f * k);
+                g.FillRectangle(wheel, midX - 0.9f * k, body.Y + 5f * k, 1.8f * k, 3.5f * k);
             }
         }
 
         private static void DrawKeyboard(Graphics g, float k, Color fill, Color outline)
         {
-            RectangleF body = new RectangleF(5f * k, 7f * k, 22f * k, 11f * k);
+            RectangleF body = new RectangleF(2f * k, 11f * k, 15f * k, 10f * k);
             using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 2.5f * k))
             using (SolidBrush brush = new SolidBrush(fill))
             using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
@@ -203,11 +203,11 @@ namespace Voltide.UI
             {
                 for (int row = 0; row < 2; row++)
                 {
-                    float ky = body.Y + 2.5f * k + row * 4.5f * k;
-                    for (int col = 0; col < 5; col++)
+                    float ky = body.Y + 2.2f * k + row * 4.2f * k;
+                    for (int col = 0; col < 4; col++)
                     {
-                        float kx = body.X + 2.5f * k + col * 4f * k;
-                        g.FillRectangle(key, kx, ky, 2.4f * k, 2.2f * k);
+                        float kx = body.X + 2f * k + col * 3.3f * k;
+                        g.FillRectangle(key, kx, ky, 2.2f * k, 2.2f * k);
                     }
                 }
             }
@@ -216,7 +216,7 @@ namespace Voltide.UI
         private static void DrawHeadset(Graphics g, float k, Color fill, Color outline)
         {
             // Headband arc across the top, two ear cups hanging at the sides.
-            RectangleF band = new RectangleF(9f * k, 3f * k, 14f * k, 12f * k);
+            RectangleF band = new RectangleF(4f * k, 7f * k, 11f * k, 11f * k);
             using (Pen pen = new Pen(fill, Math.Max(1.5f, 2.2f * k)))
             {
                 g.DrawArc(pen, band, 180f, 180f);
@@ -224,13 +224,13 @@ namespace Voltide.UI
 
             using (SolidBrush cup = new SolidBrush(fill))
             {
-                g.FillRectangle(cup, 6.5f * k, 8f * k, 4f * k, 8f * k);
-                g.FillRectangle(cup, 21.5f * k, 8f * k, 4f * k, 8f * k);
+                g.FillRectangle(cup, 2.5f * k, 11f * k, 3f * k, 7f * k);
+                g.FillRectangle(cup, 13.5f * k, 11f * k, 3f * k, 7f * k);
             }
             using (Pen pen = new Pen(outline, Math.Max(1f, 1f * k)))
             {
-                g.DrawRectangle(pen, 6.5f * k, 8f * k, 4f * k, 8f * k);
-                g.DrawRectangle(pen, 21.5f * k, 8f * k, 4f * k, 8f * k);
+                g.DrawRectangle(pen, 2.5f * k, 11f * k, 3f * k, 7f * k);
+                g.DrawRectangle(pen, 13.5f * k, 11f * k, 3f * k, 7f * k);
             }
         }
 
@@ -263,10 +263,14 @@ namespace Voltide.UI
         private static void DrawPercent(Graphics g, float k, int percent)
         {
             string text = percent.ToString();
-            Font font = FontManager.Get(FontKind.MontserratSemiBold, 9.5f * k);
+            Font font = FontManager.Get(FontKind.MontserratSemiBold, 12f * k);
             SizeF sz = g.MeasureString(text, font);
-            float x = (32f * k - sz.Width) / 2f;
-            float y = 21f * k;
+
+            // Number sits in the right-hand strip, vertically centred beside the shape.
+            float areaX = 18f * k;
+            float areaW = 13f * k;
+            float x = areaX + (areaW - sz.Width) / 2f;
+            float y = 16f * k - sz.Height / 2f;
 
             Color halo = Color.FromArgb(17, 15, 36);
             using (SolidBrush haloBrush = new SolidBrush(halo))
