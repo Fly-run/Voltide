@@ -36,6 +36,19 @@ New-Item -ItemType Directory -Path $Target -Force | Out-Null
 # One file, nothing else: the three typefaces are manifest resources inside the exe.
 Copy-Item $exe (Join-Path $Target 'Voltide.exe') -Force
 
+# Refresh the other copies the app is actually launched from, if those folders exist,
+# so a running old copy does not keep showing an outdated build.
+$extraCopies = @(
+    (Join-Path $env:USERPROFILE 'Downloads'),
+    'D:\HOME'
+)
+foreach ($dir in $extraCopies) {
+    if (Test-Path $dir) {
+        Copy-Item $exe (Join-Path $dir 'Voltide.exe') -Force
+        Write-Host "Synced to $dir" -ForegroundColor DarkGray
+    }
+}
+
 Write-Host ""
 Write-Host "--- packed ---" -ForegroundColor Green
 Get-ChildItem $Target -Recurse -File |
