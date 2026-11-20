@@ -136,9 +136,9 @@ namespace Voltide.UI
 
             bool active = percent.HasValue;
             Color fill = active ? CardRenderer.PrimaryFor(percent.Value)
-                                : Color.FromArgb(120, 120, 120);
-            Color outline = active ? Color.FromArgb(225, 225, 225)
-                                   : Color.FromArgb(120, 120, 120);
+                                : Color.FromArgb(88, 88, 88);
+            Color outline = active ? Color.FromArgb(245, 245, 245)
+                                   : Color.FromArgb(165, 165, 165);
 
             using (Graphics g = Graphics.FromImage(bmp))
             {
@@ -165,25 +165,29 @@ namespace Voltide.UI
 
         private static void DrawMouse(Graphics g, float k, Color fill, Color outline)
         {
-            // Vertical rounded body on the left, a centre split from the top, a wheel.
-            RectangleF body = new RectangleF(4f * k, 7f * k, 9f * k, 18f * k);
-            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 4.5f * k))
+            // Padded vertical body with a round head; a bold white outline keeps the
+            // silhouette readable once the tray shrinks the icon to 16 px.
+            RectangleF body = new RectangleF(3f * k, 6f * k, 11f * k, 20f * k);
+            using (GraphicsPath path = RoundRect(body.X, body.Y, body.Width, body.Height, 5.5f * k))
             using (SolidBrush brush = new SolidBrush(fill))
-            using (Pen pen = new Pen(outline, Math.Max(1f, 1.2f * k)))
+            using (Pen pen = new Pen(outline, Math.Max(1.2f, 1.8f * k)))
             {
                 g.FillPath(brush, path);
                 g.DrawPath(pen, path);
             }
 
             float midX = body.X + body.Width / 2f;
-            using (Pen pen = new Pen(outline, Math.Max(1f, k)))
+
+            // Button split: a centre seam from the top down to the wheel.
+            using (Pen seam = new Pen(outline, Math.Max(1f, 1.2f * k)))
             {
-                g.DrawLine(pen, midX, body.Y + 1f * k, midX, body.Y + 8f * k);
+                g.DrawLine(seam, midX, body.Y + 1.5f * k, midX, body.Y + 10f * k);
             }
 
+            // Scroll wheel: a bright pill centred on the seam.
             using (SolidBrush wheel = new SolidBrush(outline))
             {
-                g.FillRectangle(wheel, midX - 0.9f * k, body.Y + 5f * k, 1.8f * k, 3.5f * k);
+                g.FillRectangle(wheel, midX - 1f * k, body.Y + 6.5f * k, 2f * k, 4f * k);
             }
         }
 
