@@ -50,7 +50,6 @@
 | 迈丛 MCHOSE | A5 V3 | VID `3837` | 65 字节 Feature |
 | 迈丛 MCHOSE | A7 Ultra | VID `5253` | 厂商自定义 |
 | 迈丛 MCHOSE | V9 Turbo+（耳机） | — | 厂商自定义 |
-| 迈丛 MCHOSE | V9 Pro（耳机） | `291D:385D` | 实验性；Windows HID 暂读不到电量 |
 | ROG | AZOTH EXTREME（夜魔 Extreme） | `0B05:1ACE` | 64 字节帧；Omni 键鼠分离（实验性） |
 | ROG | Delta II、Pelta（耳机） | VID `0B05` | 64 字节，0xFF00 |
 | 雷蛇 Razer | 毒蝰、炼狱蝰蛇、巴塞利斯蛇等 24 款无线鼠标 | VID `1532` | 91 字节 Feature |
@@ -175,7 +174,6 @@ powershell -ExecutionPolicy Bypass -File pack.ps1 -Target dist
 - 同品牌但不同型号的设备会被识别为现有型号。适配层目前按厂商与接口特征匹配，尚未区分具体型号。
 - 迈丛与狼蛛共用 USB 标识（`3554:FA09`）。目前仅适配迈丛的查询协议，狼蛛键盘可能被识别为迈丛型号，读数也可能不正确。两者需要通过监听设备主动上报来区分，尚未实现。
 - XInput 手柄只能读到**四档**电量（满 100% / 中 50% / 低 20% / 空 5%），不是精确百分比。卡片详情会标注 `XInput 四档`，避免误读为实测值。
-- **MCHOSE V9 Pro（`291D:385D`）为实验性适配，Windows HID 通道暂读不到电量。** 前端协议：查询 `55 65 01`、回复 `55 65 PP SS`（PP 百分比、SS 状态）。本机六个 HID 集合经 preparsed data 核定：`FF82` 输入/输出报告均为 `0x41`，`FF90` 仅有输入报告 `0x55`、**无输出报告**，`FF22` Feature 报告 `0xAA`；HID 表面并不存在承载 `0x55` 的输出报告，三种 HID 写入通道（中断 OUT、控制输出报告、Feature）均无应答。官方 HUB 主进程经 `koffi` 调用厂商音频 SDK `osConfLib.dll`（C-Media 驱动 GUID 的 `PropertyControl`）取电量，逻辑在保护字节码中；通用 HID 适配器无法直接复用。待官方 HUB 运行时抓包（或拆解该 SDK 接口）核定真实传输端点后，才能收敛到可用通道。
 
 ## 许可
 
